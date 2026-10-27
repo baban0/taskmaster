@@ -402,5 +402,116 @@ function render() {
 
 render();
 </script>
+<section id="smart-assistant" style="background:#fff;padding:20px;margin:20px 0;border-radius:16px;border:1px solid #dce7df;">
+  <h2 style="color:#166534;">TaskMaster Smart Assistant</h2>
+  <p>Choose a tool to help you organize your tasks.</p>
+
+  <label for="assistant-task">Enter your task</label>
+  <input id="assistant-task" type="text" placeholder="e.g. Complete my project" style="width:100%;padding:12px;margin:10px 0;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;">
+
+  <button type="button" onclick="tmPlanTask()" style="padding:11px;margin:4px;background:#166534;color:white;border:0;border-radius:8px;">Task Planner</button>
+  <button type="button" onclick="tmSmartPriority()" style="padding:11px;margin:4px;background:#166534;color:white;border:0;border-radius:8px;">Smart Priority</button>
+  <button type="button" onclick="tmDailyPlan()" style="padding:11px;margin:4px;background:#166534;color:white;border:0;border-radius:8px;">Daily Plan</button>
+
+  <div id="assistant-result" style="margin-top:16px;line-height:1.8;overflow-wrap:anywhere;"></div>
+  <p style="font-size:12px;color:#666;">Demo assistant: suggestions are generated using simple rules, not a live AI service.</p>
+</section>
+
+<script>
+function tmShowResult(title, items) {
+  const box = document.getElementById('assistant-result');
+  box.replaceChildren();
+
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  box.appendChild(heading);
+
+  const list = document.createElement('ol');
+  items.forEach(function(item) {
+    const li = document.createElement('li');
+    li.textContent = item;
+    list.appendChild(li);
+  });
+  box.appendChild(list);
+}
+
+function tmPlanTask() {
+  const task = document.getElementById('assistant-task').value.trim();
+  if (!task) {
+    tmShowResult('Please enter a task first.', ['Type a task in the box above.']);
+    return;
+  }
+  tmShowResult('Task Planner: ' + task, [
+    'Define the exact result you want to achieve.',
+    'Break the task into three small, manageable steps.',
+    'Complete the first step and check your progress.',
+    'Finish the remaining steps and review the result.'
+  ]);
+}
+
+function tmSmartPriority() {
+  if (typeof tasks === 'undefined' || !Array.isArray(tasks) || tasks.length === 0) {
+    tmShowResult('Smart Priority', ['Add some tasks to TaskMaster first.']);
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const ranked = tasks.filter(t => !t.completed).map(t => {
+    let score = 0;
+    if (t.dueDate) {
+      const due = new Date(t.dueDate + 'T00:00:00');
+      const days = Math.ceil((due - today) / 86400000);
+      if (days < 0) score += 5;
+      else if (days <= 1) score += 4;
+      else if (days <= 3) score += 2;
+    }
+    if (String(t.priority).toLowerCase() === 'high') score += 3;
+    else if (String(t.priority).toLowerCase() === 'medium') score += 2;
+    else score += 1;
+    return { task: t, score: score };
+  }).sort((a, b) => b.score - a.score);
+
+  tmShowResult('Smart Priority: suggested order', ranked.map((item, i) =>
+    (i + 1) + '. ' + (item.task.title || 'Untitled task') +
+    ' — ' + (item.score >= 7 ? 'Do soon' : item.score >= 4 ? 'Normal priority' : 'Can wait')
+  ));
+
+  if (ranked.length === 0) {
+    tmShowResult('Smart Priority', ['All your tasks are completed. Great work!']);
+  }
+}
+
+function tmDailyPlan() {
+  if (typeof tasks === 'undefined' || !Array.isArray(tasks) || tasks.length === 0) {
+    tmShowResult('Daily Plan', ['Add tasks to TaskMaster first, then create your plan.']);
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const pending = tasks.filter(t => !t.completed).sort((a, b) => {
+    const da = a.dueDate || '9999-12-31';
+    const db = b.dueDate || '9999-12-31';
+    if (da !== db) return da.localeCompare(db);
+    const rank = { high: 0, medium: 1, low: 2 };
+    return (rank[String(a.priority).toLowerCase()] ?? 3) -
+           (rank[String(b.priority).toLowerCase()] ?? 3);
+  });
+
+  const plan = pending.map((t, i) => {
+    let timing = 'Later today';
+    if (i === 0) timing = '1. Start here';
+    else if (i === 1) timing = '2. Next';
+    else if (i === 2) timing = '3. After that';
+    return timing + ': ' + (t.title || 'Untitled task') +
+      (t.dueDate ? ' (due ' + t.dueDate + ')' : '');
+  });
+
+  tmShowResult('Your Daily Plan', plan.length ? plan : ['No pending tasks. Enjoy your free time!']);
+}
+</script>
 </body>
 </html>
